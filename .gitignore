@@ -1,0 +1,22 @@
+# Build artifacts
+build/
+release/
+*.app
+
+# macOS
+.DS_Store
+
+# Xcode
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+DerivedData/
+
+# Swift Package Manager
+.build/
+Package.resolved
+
+# Misc
+*.swp
+*.swo
+*~

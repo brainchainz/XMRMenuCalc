@@ -1,0 +1,59 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build universal binary
+        run: |
+          mkdir -p build/XMRMenuCalc.app/Contents/MacOS
+          mkdir -p build/XMRMenuCalc.app/Contents/Resources
+          cp -r XMRMenuCalc/Assets.xcassets build/XMRMenuCalc.app/Contents/Resources/
+          cp XMRMenuCalc/xmr_logo.png build/XMRMenuCalc.app/Contents/Resources/
+          cp XMRMenuCalc/Info.plist build/XMRMenuCalc.app/Contents/Info.plist
+
+          SWIFT_FILES=$(find XMRMenuCalc -name "*.swift" | sort)
+
+          swiftc $SWIFT_FILES \
+            -o build/XMRMenuCalc.app/Contents/MacOS/XMRMenuCalc \
+            -target arm64-apple-macosx13.0 \
+            -framework SwiftUI -framework AppKit -framework Foundation
+
+          codesign --force --sign - build/XMRMenuCalc.app
+
+      - name: Create DMG
+        run: |
+          brew install create-dmg
+          mkdir -p release
+          create-dmg \
+            --volname "XMRMenuCalc" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --app-drop-link 450 185 \
+            --icon "XMRMenuCalc.app" 150 185 \
+            "release/XMRMenuCalc.dmg" \
+            "build/XMRMenuCalc.app"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: XMRMenuCalc-dmg
+          path: release/XMRMenuCalc.dmg
+
+      - name: Upload release asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release/XMRMenuCalc.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
