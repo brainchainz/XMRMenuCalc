@@ -8,7 +8,7 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  build-macos:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,6 +18,7 @@ jobs:
           mkdir -p build/XMRMenuCalc.app/Contents/MacOS
           mkdir -p build/XMRMenuCalc.app/Contents/Resources
           cp -r XMRMenuCalc/Assets.xcassets build/XMRMenuCalc.app/Contents/Resources/
+          cp XMRMenuCalc/app_icon.icns build/XMRMenuCalc.app/Contents/Resources/
           cp XMRMenuCalc/xmr_logo.png build/XMRMenuCalc.app/Contents/Resources/
           cp XMRMenuCalc/Info.plist build/XMRMenuCalc.app/Contents/Info.plist
 
@@ -36,6 +37,7 @@ jobs:
           mkdir -p release
           create-dmg \
             --volname "XMRMenuCalc" \
+            --volicon "XMRMenuCalc/app_icon.icns" \
             --window-pos 200 120 \
             --window-size 600 400 \
             --icon-size 100 \
@@ -44,16 +46,57 @@ jobs:
             "release/XMRMenuCalc.dmg" \
             "build/XMRMenuCalc.app"
 
-      - name: Upload artifact
+      - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: XMRMenuCalc-dmg
           path: release/XMRMenuCalc.dmg
 
-      - name: Upload release asset
+      - name: Upload macOS release asset
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
           files: release/XMRMenuCalc.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev xorg-dev
+
+      - name: Build Linux binary
+        run: |
+          cd linux
+          go build -ldflags="-s -w" -o ../release/xmrmencalc-linux-amd64
+
+      - name: Package Linux binary
+        run: |
+          mkdir -p release/xmrmencalc-linux
+          cp linux/xmrmencalc-linux-amd64 release/xmrmencalc-linux/xmrmencalc
+          cp linux/xmr_logo.png release/xmrmencalc-linux/
+          cp linux/README.md release/xmrmencalc-linux/ 2>/dev/null || echo "No linux README"
+          cd release && tar czf xmrmencalc-linux-amd64.tar.gz xmrmencalc-linux
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: xmrmencalc-linux
+          path: release/xmrmencalc-linux-amd64.tar.gz
+
+      - name: Upload Linux release asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release/xmrmencalc-linux-amd64.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

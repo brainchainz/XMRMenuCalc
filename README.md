@@ -8,6 +8,7 @@ A minimal macOS menu bar app that shows live Monero (XMR) price and opens a quic
 - Shows live XMR price in USD (via CoinGecko)
 - Click the icon → popover calculator for XMR / USD / BTC conversions
 - Supports 36 fiat currencies
+- macOS and Linux builds available
 
 ## Screenshot
 
@@ -15,18 +16,18 @@ A minimal macOS menu bar app that shows live Monero (XMR) price and opens a quic
 
 ## Install
 
-### Option 1: Download DMG (easiest)
+### macOS
+
+#### Option 1: Download DMG (easiest)
 
 1. Download `XMRMenuCalc.dmg` from [Releases](../../releases)
 2. Open the DMG, drag `XMRMenuCalc` to **Applications**
 3. Launch from Applications (or Spotlight: `Cmd+Space`, type `xmr`)
-4. Grant **Accessibility** or just approve it in **System Settings → Privacy & Security** if Gatekeeper complains
+4. Approve in **System Settings → Privacy & Security** if Gatekeeper complains
 
-### Option 2: Build from source
+#### Option 2: Build from source
 
 Requires macOS 13+, Xcode command line tools, and Swift 5.9+.
-
-**Build with the included script:**
 
 ```bash
 git clone <repo-url>
@@ -35,11 +36,10 @@ cd XMRMenuCalc
 open build/XMRMenuCalc.app
 ```
 
-**Or build with Swift Package Manager:**
+**Or with Swift Package Manager:**
 
 ```bash
 swift build
-.open build/debug/XMRMenuCalc   # terminal binary, no .app bundle
 ```
 
 **Or open in Xcode:**
@@ -48,7 +48,30 @@ swift build
 open XMRMenuCalc.xcodeproj
 ```
 
-Then `Cmd+R` to run, or `Cmd+B` then right-click the product → Show in Finder.
+### Linux
+
+#### Option 1: Download binary
+
+1. Download `xmrmencalc-linux-amd64.tar.gz` from [Releases](../../releases)
+2. Extract: `tar xzf xmrmencalc-linux-amd64.tar.gz`
+3. Run: `./xmrmencalc-linux/xmrmencalc`
+
+#### Option 2: Build from source
+
+Requires Go 1.21+ and X11/Wayland dev libraries:
+
+```bash
+# Debian/Ubuntu
+sudo apt-get install libgl1-mesa-dev xorg-dev
+
+# Fedora
+sudo dnf install mesa-libGL-devel libXrandr-devel libXcursor-devel libXinerama-devel libXi-devel
+
+# Then build
+cd linux
+./build.sh
+./xmrmencalc
+```
 
 ## First launch
 
