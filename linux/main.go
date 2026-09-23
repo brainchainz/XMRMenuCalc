@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"image/draw"
 	"image/png"
 	"os"
 	"strings"
@@ -21,23 +22,24 @@ import (
 )
 
 var (
-	pm      = NewPriceManager()
-	myApp   fyne.App
-	win     fyne.Window
-	visible bool
+	pm           = NewPriceManager()
+	myApp        fyne.App
+	win          fyne.Window
+	visible      bool
 
 	// Entry references
-	xmrEntry  *widget.Entry
-	fiatEntry *widget.Entry
-	btcEntry  *widget.Entry
-	fiatBtn   *widget.Button
+	xmrEntry     *widget.Entry
+	fiatEntry    *widget.Entry
+	btcEntry     *widget.Entry
+	fiatBtn      *widget.Button
+	fiatSymLabel *widget.Label
 
 	activeField = "xmr"
 )
 
 func main() {
 	myApp = app.NewWithID("com.monero.xmrmencalc")
-	myApp.SetIcon(makeMoneroIcon())
+	myApp.SetIcon(loadMoneroLogo())
 
 	win = myApp.NewWindow("XMRMenuCalc")
 	win.SetFixedSize(true)
@@ -60,13 +62,15 @@ func main() {
 			}),
 		)
 		desk.SetSystemTrayMenu(m)
-		desk.SetSystemTrayIcon(makeMoneroIcon())
+		desk.SetSystemTrayIcon(loadMoneroLogo())
 	}
 
-	// Price updates refresh the tray tooltip and title
+	// Price updates refresh the tray icon with logo + live price text
 	pm.onUpdate = func() {
 		if desk, ok := myApp.(desktop.App); ok {
-			desk.SetSystemTrayIcon(makeMoneroIcon())
+			price := pm.XMRPrice(pm.SelectedFiat())
+			sym := fiatSymbol(pm.SelectedFiat())
+			desk.SetSystemTrayIcon(makeCompositeIcon(price, sym))
 		}
 	}
 
@@ -128,8 +132,8 @@ func buildCalculator() fyne.CanvasObject {
 
 	// Rows
 	xmrRow := container.NewBorder(nil, nil, widget.NewLabel("XMR"), nil, xmrEntry)
-	fiatSym := widget.NewLabel(fiatSymbol(pm.SelectedFiat()))
-	fiatRow := container.NewBorder(nil, nil, container.NewHBox(fiatSym, fiatBtn), nil, fiatEntry)
+	fiatSymLabel = widget.NewLabel(fiatSymbol(pm.SelectedFiat()))
+	fiatRow := container.NewBorder(nil, nil, container.NewHBox(fiatSymLabel, fiatBtn), nil, fiatEntry)
 	btcRow := container.NewBorder(nil, nil, widget.NewLabel("BTC"), nil, btcEntry)
 
 	content := container.NewVBox(
@@ -165,6 +169,7 @@ func showFiatPicker() {
 	list.OnSelected = func(id widget.ListItemID) {
 		pm.SetSelectedFiat(fiats[id])
 		fiatBtn.SetText(strings.ToUpper(fiats[id]))
+		fiatSymLabel.SetText(fiatSymbol(fiats[id]))
 		popup.Close()
 	}
 
@@ -219,20 +224,146 @@ func updateFromBTC(v float64) {
 	fiatEntry.SetText(formatPrice(xmr * price))
 }
 
-// makeMoneroIcon creates a simple orange circle with "X" for the tray
-func makeMoneroIcon() fyne.Resource {
-	// Try to load file-based icon first
-	if _, err := os.Stat("xmr_logo.png"); err == nil {
-		if res, err := fyne.LoadResourceFromPath("xmr_logo.png"); err == nil {
-			return res
+// loadMoneroLogo loads xmr_logo.png or falls back to a generated icon.
+func loadMoneroLogo() fyne.Resource {
+	for _, path := range []string{"xmr_logo.png", "linux/xmr_logo.png"} {
+		if _, err := os.Stat(path); err == nil {
+			if res, err := fyne.LoadResourceFromPath(path); err == nil {
+				return res
+			}
 		}
 	}
+	return makeFallbackIcon()
+}
 
-	// Fallback: render a simple icon
+// makeCompositeIcon renders the Monero logo (scaled) + price text on a wide tray icon.
+// Transparent background blends with panel color, white text for contrast on dark panels.
+func makeCompositeIcon(price float64, symbol string) fyne.Resource {
+	iconSize := 18
+	padding := 4
+	textWidth := 52
+	width := iconSize + padding + textWidth
+	height := 22
+	canvas := image.NewRGBA(image.Rect(0, 0, width, height))
+
+	// Transparent background
+	clearRect(canvas, canvas.Bounds(), color.RGBA{0, 0, 0, 0})
+
+	// Load and draw scaled Monero logo
+	logoImg, err := loadLogoImage()
+	if err == nil {
+		scaled := scaleBox(logoImg, iconSize, iconSize)
+		yOff := (height - iconSize) / 2
+		draw.Draw(canvas, image.Rect(0, yOff, iconSize, yOff+iconSize), scaled, image.Point{}, draw.Over)
+	}
+
+	// Price text in white (macOS menu bar text color)
+	text := "XMR"
+	if price > 0 {
+		text = formatTrayPrice(price, symbol)
+	}
+	tw := len(text) * 7
+	xPos := iconSize + padding + (textWidth-tw)/2
+	if xPos < iconSize+padding {
+		xPos = iconSize + padding
+	}
+
+	d := &font.Drawer{
+		Dst:  canvas,
+		Src:  image.NewUniform(color.RGBA{255, 255, 255, 255}),
+		Face: basicfont.Face7x13,
+		Dot:  fixed.P(xPos, 16),
+	}
+	d.DrawString(text)
+
+	var buf bytes.Buffer
+	png.Encode(&buf, canvas)
+	return fyne.NewStaticResource("composite.png", buf.Bytes())
+}
+
+func loadLogoImage() (image.Image, error) {
+	for _, path := range []string{"xmr_logo.png", "linux/xmr_logo.png"} {
+		data, err := os.ReadFile(path)
+		if err == nil {
+			img, err := png.Decode(bytes.NewReader(data))
+			if err == nil {
+				return img, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("logo not found")
+}
+
+// scaleBox downscales using a simple box filter (average of pixel block).
+// Produces smoother results than nearest-neighbor for photo/logos.
+func scaleBox(src image.Image, w, h int) image.Image {
+	dst := image.NewRGBA(image.Rect(0, 0, w, h))
+	sw := src.Bounds().Dx()
+	sh := src.Bounds().Dy()
+	sx0 := src.Bounds().Min.X
+	sy0 := src.Bounds().Min.Y
+
+	for y := 0; y < h; y++ {
+		syStart := y * sh / h
+		syEnd := (y + 1) * sh / h
+		if syEnd == syStart {
+			syEnd = syStart + 1
+		}
+		for x := 0; x < w; x++ {
+			sxStart := x * sw / w
+			sxEnd := (x + 1) * sw / w
+			if sxEnd == sxStart {
+				sxEnd = sxStart + 1
+			}
+
+			var r, g, b, a uint32
+			count := uint32(0)
+			for yy := syStart; yy < syEnd; yy++ {
+				for xx := sxStart; xx < sxEnd; xx++ {
+					pr, pg, pb, pa := src.At(sx0+xx, sy0+yy).RGBA()
+					r += pr >> 8
+					g += pg >> 8
+					b += pb >> 8
+					a += pa >> 8
+					count++
+				}
+			}
+			if count > 0 {
+				dst.Set(x, y, color.RGBA{
+					R: uint8(r / count),
+					G: uint8(g / count),
+					B: uint8(b / count),
+					A: uint8(a / count),
+				})
+			}
+		}
+	}
+	return dst
+}
+
+func clearRect(img *image.RGBA, r image.Rectangle, c color.Color) {
+	for y := r.Min.Y; y < r.Max.Y; y++ {
+		for x := r.Min.X; x < r.Max.X; x++ {
+			img.Set(x, y, c)
+		}
+	}
+}
+
+func formatTrayPrice(price float64, symbol string) string {
+	if price >= 100 {
+		return fmt.Sprintf("%s%.0f", symbol, price)
+	}
+	if price >= 10 {
+		return fmt.Sprintf("%s%.1f", symbol, price)
+	}
+	return fmt.Sprintf("%s%.2f", symbol, price)
+}
+
+// makeFallbackIcon creates a simple orange circle with "M" for when logo is missing.
+func makeFallbackIcon() fyne.Resource {
 	size := 64
 	img := image.NewRGBA(image.Rect(0, 0, size, size))
 
-	// Orange background circle
 	center := size / 2
 	radius := size/2 - 2
 	orange := color.RGBA{255, 102, 0, 255}
@@ -248,19 +379,15 @@ func makeMoneroIcon() fyne.Resource {
 		}
 	}
 
-	// Draw "X" in white
 	d := &font.Drawer{
 		Dst:  img,
 		Src:  image.NewUniform(white),
 		Face: basicfont.Face7x13,
-		Dot:  fixed.P(size/2-4, size/2+5),
+		Dot:  fixed.P(size/2-5, size/2+5),
 	}
-	d.DrawString("X")
+	d.DrawString("M")
 
 	var buf bytes.Buffer
 	png.Encode(&buf, img)
 	return fyne.NewStaticResource("icon.png", buf.Bytes())
 }
-
-// stubs to satisfy build until we wire real imports
-func _() {}

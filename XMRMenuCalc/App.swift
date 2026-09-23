@@ -5,6 +5,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private let priceManager = PriceManager.shared
     private var popover: NSPopover?
+    private var moneroChan: MoneroChanCompanion?
+
+    static let moneroChanKey = "MoneroChanEnabled"
+
+    var moneroChanEnabled: Bool {
+        get { UserDefaults.standard.bool(forKey: Self.moneroChanKey) }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Self.moneroChanKey)
+            applyMoneroChan()
+            NotificationCenter.default.post(name: NSNotification.Name("MoneroChanChanged"), object: nil)
+        }
+    }
+
+    private func applyMoneroChan() {
+        if moneroChanEnabled {
+            if moneroChan == nil, let dir = Bundle.main.resourceURL?.appendingPathComponent("MoneroChanFrames") {
+                let chan = MoneroChanCompanion(framesDir: dir)
+                chan.onTurnOff = { [weak self] in self?.moneroChanEnabled = false }
+                moneroChan = chan
+            }
+            moneroChan?.start()
+        } else {
+            moneroChan?.stop()
+        }
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSLog("=== XMRMenuCalc launching ===")
@@ -13,7 +38,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSLog("Set activation policy to .accessory")
 
         popover = NSPopover()
-        popover?.contentSize = NSSize(width: 300, height: 220)
+        popover?.contentSize = NSSize(width: 300, height: 286)
         popover?.behavior = .transient
         popover?.contentViewController = CalculatorHostingController(
             rootView: CalculatorView(priceManager: priceManager)
@@ -61,6 +86,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSNotification.Name("FiatChanged"),
             object: nil
         )
+
+        applyMoneroChan()
 
         NSLog("=== XMRMenuCalc launch complete ===")
     }

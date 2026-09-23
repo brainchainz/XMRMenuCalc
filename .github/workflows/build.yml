@@ -13,23 +13,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build universal binary
+      - name: Build universal app (same script as local builds)
         run: |
-          mkdir -p build/XMRMenuCalc.app/Contents/MacOS
-          mkdir -p build/XMRMenuCalc.app/Contents/Resources
-          cp -r XMRMenuCalc/Assets.xcassets build/XMRMenuCalc.app/Contents/Resources/
-          cp XMRMenuCalc/app_icon.icns build/XMRMenuCalc.app/Contents/Resources/
-          cp XMRMenuCalc/xmr_logo.png build/XMRMenuCalc.app/Contents/Resources/
-          cp XMRMenuCalc/Info.plist build/XMRMenuCalc.app/Contents/Info.plist
-
-          SWIFT_FILES=$(find XMRMenuCalc -name "*.swift" | sort)
-
-          swiftc $SWIFT_FILES \
-            -o build/XMRMenuCalc.app/Contents/MacOS/XMRMenuCalc \
-            -target arm64-apple-macosx13.0 \
-            -framework SwiftUI -framework AppKit -framework Foundation
-
-          codesign --force --sign - build/XMRMenuCalc.app
+          chmod +x build.sh
+          ./build.sh
+          test -f build/XMRMenuCalc.app/Contents/Resources/MoneroChanFrames/meta.json
+          lipo -info build/XMRMenuCalc.app/Contents/MacOS/XMRMenuCalc
 
       - name: Create DMG
         run: |
@@ -82,7 +71,7 @@ jobs:
       - name: Package Linux binary
         run: |
           mkdir -p release/xmrmencalc-linux
-          cp linux/xmrmencalc-linux-amd64 release/xmrmencalc-linux/xmrmencalc
+          cp release/xmrmencalc-linux-amd64 release/xmrmencalc-linux/xmrmencalc
           cp linux/xmr_logo.png release/xmrmencalc-linux/
           cp linux/README.md release/xmrmencalc-linux/ 2>/dev/null || echo "No linux README"
           cd release && tar czf xmrmencalc-linux-amd64.tar.gz xmrmencalc-linux

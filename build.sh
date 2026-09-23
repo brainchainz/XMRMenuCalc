@@ -22,6 +22,8 @@ cp "$SRC_DIR/app_icon.icns" "$APP_PATH/Contents/Resources/"
 # Also copy the raw PNG for direct loading fallback
 cp "$SRC_DIR/xmr_logo.png" "$APP_PATH/Contents/Resources/"
 cp "$SRC_DIR/Info.plist" "$APP_PATH/Contents/Info.plist"
+# Monerochan companion sprite frames
+cp -r "$SRC_DIR/MoneroChanFrames" "$APP_PATH/Contents/Resources/"
 
 # Compile Swift sources for arm64 (native) and x86_64 (Rosetta)
 SWIFT_FILES=$(find "$SRC_DIR" -name "*.swift" | sort)

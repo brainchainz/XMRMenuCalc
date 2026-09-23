@@ -104,6 +104,25 @@ struct CalculatorView: View {
             }
             .padding(.horizontal, 12)
 
+            Divider()
+                .padding(.horizontal, 12)
+
+            // Settings row: Monerochan companion on/off
+            MoneroChanToggle()
+                .padding(.horizontal, 12)
+
+            // Version + manual update check (only contacts GitHub when clicked)
+            HStack {
+                Text("Version \(Updater.shared.currentVersion)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Button("Check for Updates") { Updater.shared.checkForUpdates() }
+                    .font(.caption)
+                    .buttonStyle(.link)
+            }
+            .padding(.horizontal, 12)
+
             Spacer(minLength: 4)
 
             // Footer: prices left, quit button right
@@ -135,7 +154,7 @@ struct CalculatorView: View {
             .padding(.horizontal, 12)
             .padding(.bottom, 6)
         }
-        .frame(width: 300, height: 220)
+        .frame(width: 300, height: 286)
     }
 
     // MARK: - Formatting
@@ -263,6 +282,36 @@ struct NumberTextField: NSViewRepresentable {
                 return true
             }
             return false
+        }
+    }
+}
+
+// MARK: - Monerochan on/off switch
+
+struct MoneroChanToggle: View {
+    @State private var on = UserDefaults.standard.bool(forKey: AppDelegate.moneroChanKey)
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text("Monerochan")
+                .font(.system(size: 13, weight: .semibold))
+            Spacer()
+            Toggle("", isOn: Binding(
+                get: { on },
+                set: { v in
+                    on = v
+                    (NSApp.delegate as? AppDelegate)?.moneroChanEnabled = v
+                }
+            ))
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            .tint(.orange)
+        }
+        .frame(height: 22)
+        .help("Show Monerochan running around your screen")
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("MoneroChanChanged"))) { _ in
+            on = UserDefaults.standard.bool(forKey: AppDelegate.moneroChanKey)
         }
     }
 }
