@@ -107,40 +107,33 @@ struct CalculatorView: View {
             Divider()
                 .padding(.horizontal, 12)
 
-            // Settings row: Monerochan companion on/off
-            MoneroChanToggle()
-                .padding(.horizontal, 12)
-
-            // Version + manual update check (only contacts GitHub when clicked)
+            // Prices
             HStack {
-                Text("Version \(Updater.shared.currentVersion)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("1 BTC = \(fiatSymbol)\((priceManager.btcPrices[priceManager.selectedFiat] ?? 0) > 0 ? btcPriceText : "…")")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Text("1 XMR = \(priceManager.xmrBtcPrice > 0 ? xmrBtcPriceText : "…") BTC")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
                 Spacer()
-                Button("Check for Updates") { Updater.shared.checkForUpdates() }
-                    .font(.caption)
-                    .buttonStyle(.link)
             }
             .padding(.horizontal, 12)
 
-            Spacer(minLength: 4)
+            // Monerochan companion on/off
+            MoneroChanToggle()
+                .padding(.horizontal, 12)
 
-            // Footer: prices left, quit button right
-            HStack {
-                if (priceManager.btcPrices[priceManager.selectedFiat] ?? 0) > 0 {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("1 BTC = \(fiatSymbol)\(btcPriceText)")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-
-                        Text("1 XMR = \(xmrBtcPriceText) BTC")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                }
-
+            // Version + manual update check (only contacts GitHub when clicked), quit on the far right
+            HStack(spacing: 8) {
+                Text("Version \(Updater.shared.currentVersion)")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                Button("Check for Updates") { Updater.shared.checkForUpdates() }
+                    .font(.caption2)
+                    .buttonStyle(.link)
                 Spacer()
-
                 Button(action: {
                     NSApplication.shared.terminate(nil)
                 }) {
@@ -149,12 +142,14 @@ struct CalculatorView: View {
                         .foregroundColor(.secondary)
                 }
                 .buttonStyle(PlainButtonStyle())
+                .help("Quit XMRMenuCalc")
                 .padding(.trailing, 4)
             }
             .padding(.horizontal, 12)
-            .padding(.bottom, 6)
+            .padding(.bottom, 8)
         }
-        .frame(width: 300, height: 286)
+        .frame(width: 300)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     // MARK: - Formatting

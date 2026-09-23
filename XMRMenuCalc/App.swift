@@ -38,7 +38,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSLog("Set activation policy to .accessory")
 
         popover = NSPopover()
-        popover?.contentSize = NSSize(width: 300, height: 286)
+        // size the popover to exactly fit its content (no empty gaps)
+        let fit = NSHostingController(rootView: CalculatorView(priceManager: priceManager)).view.fittingSize
+        popover?.contentSize = NSSize(width: 300, height: ceil(fit.height))
         popover?.behavior = .transient
         popover?.contentViewController = CalculatorHostingController(
             rootView: CalculatorView(priceManager: priceManager)
